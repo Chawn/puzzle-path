@@ -110,6 +110,6 @@ type Level = {
 - **AC10** ✅ git status: แตะแค่ src/ + package-lock, ไม่แตะ config/docs, ไม่เพิ่ม dependency
 
 ### ⚠️ Residual (เขียนตรงๆ ไม่เคลม 100%)
-- `assertAllLevelsSolvable()` รันทุก page load (100 generation) — การันตี AC9 แต่หน่วง load ~เล็กน้อย (worst ~1s บนด่านใหญ่). **ควร gate เฉพาะ `import.meta.env.DEV`** → follow-up (ไม่ block, ไม่ใช่ AC fail)
-- favicon 404 (cosmetic) — ยังไม่มี favicon
+- ✅ FIXED: `assertAllLevelsSolvable()` gate `import.meta.env.DEV` แล้ว (tree-shake จาก prod, per-level assert ยังอยู่)
+- ✅ FIXED: favicon inline SVG (grid/เส้น) กัน 404
 - ยังไม่ได้ deploy (Cloudflare Pages) — out of scope รอบนี้

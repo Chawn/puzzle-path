@@ -5,6 +5,16 @@ import { type GameProgress, MAX_LEVEL } from "./game/types";
 import { wireInput } from "./game/input";
 import "./style.css";
 
+declare global {
+  interface ImportMetaEnv {
+    readonly DEV: boolean;
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+}
+
 const STORAGE_KEY = "puzzle-path-progress";
 
 function clampLevel(level: number): number {
@@ -74,7 +84,9 @@ function startApp(): void {
     });
   };
 
-  assertAllLevelsSolvable();
+  if (import.meta.env.DEV) {
+    assertAllLevelsSolvable();
+  }
   openLevel(progress.currentLevel);
 }
 
