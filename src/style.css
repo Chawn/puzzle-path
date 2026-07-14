@@ -1,0 +1,240 @@
+:root {
+  color: #13201a;
+  background: #f4f7f2;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+button {
+  border: 0;
+  font: inherit;
+}
+
+.game-shell {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  padding: clamp(14px, 4vw, 32px);
+  background:
+    linear-gradient(135deg, rgba(45, 117, 84, 0.14), transparent 34%),
+    linear-gradient(315deg, rgba(45, 82, 141, 0.12), transparent 38%),
+    #f4f7f2;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(92vw, 680px);
+  margin: 0 auto clamp(12px, 3vw, 22px);
+  gap: 12px;
+}
+
+.level-title {
+  color: #20342a;
+  font-size: clamp(18px, 2.7vw, 26px);
+  font-weight: 800;
+}
+
+.control-button,
+.primary-button {
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #285c45;
+  cursor: pointer;
+  font-weight: 750;
+  box-shadow: 0 8px 20px rgba(24, 60, 43, 0.18);
+}
+
+.primary-button {
+  background: #235aa6;
+}
+
+.primary-button:disabled {
+  background: #6e7c8b;
+  cursor: default;
+}
+
+.grid-wrap {
+  display: grid;
+  align-content: start;
+  justify-content: center;
+  width: 100%;
+}
+
+.grid {
+  --gap: clamp(5px, 1.2vw, 10px);
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
+  gap: var(--gap);
+  width: min(92vw, 680px, calc((100vh - 132px) * var(--cols) / var(--rows)));
+  aspect-ratio: var(--cols) / var(--rows);
+  min-width: min(92vw, 320px);
+  padding: var(--gap);
+  border: 1px solid rgba(22, 49, 36, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 18px 40px rgba(23, 49, 36, 0.14);
+  touch-action: none;
+  user-select: none;
+}
+
+.cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid rgba(42, 69, 55, 0.16);
+  border-radius: 8px;
+  overflow: hidden;
+  color: #ffffff;
+  background: #ffffff;
+  font-size: clamp(16px, 4vw, 28px);
+  font-weight: 900;
+}
+
+.cell::before,
+.cell::after {
+  position: absolute;
+  z-index: 1;
+  display: none;
+  content: "";
+  background: #33b06f;
+}
+
+.cell::before {
+  width: 44%;
+  height: 18%;
+}
+
+.cell::after {
+  width: 18%;
+  height: 44%;
+}
+
+.cell.blocked {
+  border-color: rgba(24, 33, 29, 0.22);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.09) 0 6px,
+      transparent 6px 12px
+    ),
+    #27302c;
+}
+
+.cell.in-path {
+  border-color: rgba(28, 126, 78, 0.5);
+  background: #54c587;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.38);
+}
+
+.cell.start {
+  background: #245a9e;
+}
+
+.cell.head {
+  outline: 3px solid #f2b84b;
+  outline-offset: -4px;
+}
+
+.cell.connect-left::before,
+.cell.connect-right::before,
+.cell.connect-up::after,
+.cell.connect-down::after {
+  display: block;
+}
+
+.cell.connect-left::before {
+  left: 0;
+}
+
+.cell.connect-right::before {
+  right: 0;
+}
+
+.cell.connect-up::after {
+  top: 0;
+}
+
+.cell.connect-down::after {
+  bottom: 0;
+}
+
+.cell.start::before,
+.cell.start::after {
+  background: #79d295;
+}
+
+.cell.start {
+  z-index: 2;
+}
+
+.win-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(14, 25, 20, 0.52);
+}
+
+.win-overlay[hidden] {
+  display: none;
+}
+
+.win-dialog {
+  display: grid;
+  gap: 18px;
+  width: min(88vw, 320px);
+  padding: 24px;
+  border-radius: 8px;
+  color: #14221a;
+  background: #ffffff;
+  text-align: center;
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.28);
+}
+
+.win-dialog strong {
+  font-size: 32px;
+}
+
+@media (max-width: 430px) {
+  .game-shell {
+    padding: 12px;
+  }
+
+  .topbar {
+    width: 100%;
+  }
+
+  .grid {
+    width: min(96vw, calc(100vh - 118px));
+  }
+}

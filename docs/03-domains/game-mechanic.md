@@ -1,5 +1,5 @@
-# Game Mechanic — Puzzle Path — DESIGN
-> DESIGN 2026-07-15 · owner: puzzle-path (single repo) · stack: Vanilla TS + Vite
+# Game Mechanic — Puzzle Path — IMPLEMENTED
+> IMPLEMENTED 2026-07-15 · owner: puzzle-path (single repo) · stack: Vanilla TS + Vite
 > **Out of scope:** backend/API · บัญชีผู้ใช้/login · เสียง/เพลง · animation หรูๆ (เอาแค่ highlight พอ) · level editor UI · multiplayer · leaderboard ออนไลน์ · framework (React/Vue) — ห้ามเพิ่ม dependency นอกจาก vite+typescript
 
 ## 1. ทำไม (why + constraint)
@@ -94,5 +94,22 @@ type Level = {
 ## 6. Flow สรุป
 โหลด progress → generator(levelId) สร้างด่าน (solvable) → render grid → ผู้เล่นลาก (input) → state ตรวจกติกา → ครบทุกช่อง → win overlay → ด่านต่อไป → save.
 
-## 7. As-built (เติมหลัง implement)
-> (รอ implement)
+## 7. As-built
+> IMPLEMENTED 2026-07-15 · branch `feat/game-implementation` · Codex implement + Claude review/verify
+> Codex สร้าง 8 ไฟล์ใน src/ (873 บรรทัด) ตาม §4 ไม่แตะ config/docs
+
+### ผล verify จริง (Claude รันเอง ไม่เชื่อ Codex ล้วน)
+- **AC1** ✅ `npm run build` ผ่าน (tsc strict + vite, 0 error) — รันอิสระ
+- **AC2** ✅ ด่าน 1 = 3×3 ไม่มีกำแพง มี start (verify ผ่าน Playwright: start (0,2))
+- **AC3** ✅ drive drag ครบ 9 ช่อง → win text ขึ้น + progress เลื่อน `unlockedLevel:2` (end-to-end Playwright)
+- **AC4/5** ✅ review state.ts: reject blocked/in-path/non-adjacent + undo (cell==previous→pop)
+- **AC6** ✅ 375px: ไม่มี horizontal overflow (scrollWidth=375), grid 360×360 พอดีจอ, cell 113px, `touch-action:none`
+- **AC7** ✅ progress เก็บ localStorage (observed `{"currentLevel":1,"unlockedLevel":2}`)
+- **AC8** ✅ getDifficulty band 3×3→8×8+ กำแพงโตตาม level
+- **AC9** ✅ runtime log "verified 100 deterministic solvable levels" + review assertSolvable เป็น check จริง (continuous/no-wall/no-repeat/ครบ) ไม่ใช่ no-op. การันตี by construction (blocked = ช่องที่ path ไม่ผ่าน)
+- **AC10** ✅ git status: แตะแค่ src/ + package-lock, ไม่แตะ config/docs, ไม่เพิ่ม dependency
+
+### ⚠️ Residual (เขียนตรงๆ ไม่เคลม 100%)
+- ✅ FIXED: `assertAllLevelsSolvable()` gate `import.meta.env.DEV` แล้ว (tree-shake จาก prod, per-level assert ยังอยู่)
+- ✅ FIXED: favicon inline SVG (grid/เส้น) กัน 404
+- ยังไม่ได้ deploy (Cloudflare Pages) — out of scope รอบนี้
