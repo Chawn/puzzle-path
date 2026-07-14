@@ -1,6 +1,5 @@
 # Changelog
 
-บันทึกการเปลี่ยนแปลงระดับโปรเจค (ใหม่→เก่า). format: `## YYYY-MM-DD` + bullet สั้น อ้าง commit/ADR/domain doc
-
-## <วันที่แรก>
-- โครงเริ่มต้น: bootstrap docs skeleton
+## 2026-07-15
+- Game mechanic IMPLEMENTED: Hamiltonian fill-all puzzle, 100 ด่าน generate solvable, responsive web/mobile/tablet, localStorage progress. Codex implement + Claude review/verify (AC ครบ 10 ข้อ).
+- Scaffold: Vite + TS + docs-first (docs Standard)
