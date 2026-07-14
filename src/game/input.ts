@@ -1,6 +1,7 @@
 import { type RenderHandles } from "./render";
 import { type GameState } from "./state";
 import { type Cell } from "./types";
+import { gameAudio } from "./audio";
 
 type InputOptions = {
   onWin: () => void;
@@ -29,6 +30,8 @@ export function wireInput(state: GameState, handles: RenderHandles, options: Inp
       return;
     }
 
+    const previousLength = state.path.length;
+
     if (state.extend(cell)) {
       lastHandled = cell;
       handles.update();
@@ -36,7 +39,12 @@ export function wireInput(state: GameState, handles: RenderHandles, options: Inp
       if (state.isWin()) {
         dragging = false;
         handles.setWon(true);
+        gameAudio.playWin();
         options.onWin();
+      } else if (state.path.length < previousLength) {
+        gameAudio.playUndo();
+      } else {
+        gameAudio.playPathBlip(state.path.length);
       }
     }
   };

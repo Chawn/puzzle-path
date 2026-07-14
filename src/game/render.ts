@@ -1,8 +1,10 @@
 import { type GameState } from "./state";
 import { type Cell, MAX_LEVEL } from "./types";
+import { gameAudio } from "./audio";
 
 export type RenderHandles = {
   grid: HTMLElement;
+  backButton: HTMLButtonElement;
   resetButton: HTMLButtonElement;
   nextButton: HTMLButtonElement;
   setWon: (isWon: boolean) => void;
@@ -39,12 +41,23 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
   title.className = "level-title";
   title.textContent = `ด่าน ${state.level.id}/${MAX_LEVEL}`;
 
+  const controls = document.createElement("div");
+  controls.className = "topbar-controls";
+
+  const muteButton = gameAudio.createMuteButton();
+
+  const backButton = document.createElement("button");
+  backButton.className = "control-button subtle-button";
+  backButton.type = "button";
+  backButton.textContent = "เลือกด่าน";
+
   const resetButton = document.createElement("button");
   resetButton.className = "control-button";
   resetButton.type = "button";
   resetButton.textContent = "Reset";
 
-  topbar.append(title, resetButton);
+  controls.append(muteButton, backButton, resetButton);
+  topbar.append(title, controls);
 
   const gridWrap = document.createElement("section");
   gridWrap.className = "grid-wrap";
@@ -60,6 +73,11 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
       cell.className = "cell";
       cell.dataset.row = String(r);
       cell.dataset.col = String(c);
+      const label = document.createElement("span");
+      label.className = "cell-label";
+      const particles = document.createElement("span");
+      particles.className = "cell-particles";
+      cell.append(label, particles);
       grid.append(cell);
     }
   }
@@ -121,22 +139,32 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
       if (isHead) {
         classes.push("head");
       }
+      if (shell.classList.contains("is-winning") && index !== undefined) {
+        classes.push("win-step");
+      }
 
       cellEl.className = classes.join(" ");
-      cellEl.textContent = isStart ? "S" : "";
+      cellEl.style.setProperty("--path-index", String(index ?? 0));
+      const label = cellEl.querySelector<HTMLElement>(".cell-label");
+      if (label) {
+        label.textContent = isStart ? "S" : "";
+      }
     }
   };
 
   const setWon = (isWon: boolean): void => {
+    shell.classList.toggle("is-winning", isWon);
     overlay.hidden = !isWon;
     nextButton.disabled = state.level.id >= MAX_LEVEL;
     nextButton.textContent = state.level.id >= MAX_LEVEL ? "ครบ 100 ด่าน" : "ด่านต่อไป";
+    update();
   };
 
   update();
 
   return {
     grid,
+    backButton,
     resetButton,
     nextButton,
     setWon,

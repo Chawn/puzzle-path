@@ -4,7 +4,7 @@ import { type Cell, type Level, MAX_LEVEL } from "./types";
 type Difficulty = {
   rows: number;
   cols: number;
-  walls: number;
+  lavaRatio: number;
 };
 
 type RoutePlan = {
@@ -22,24 +22,17 @@ const isAdjacent = (a: Cell, b: Cell): boolean => {
 };
 
 function getDifficulty(levelId: number): Difficulty {
-  if (levelId <= 10) {
-    const size = levelId <= 5 ? 3 : 4;
-    return { rows: size, cols: size, walls: 0 };
-  }
+  const band = Math.floor((levelId - 1) / 10);
+  const position = (levelId - 1) % 10;
+  const baseRows = 3 + Math.min(6, Math.floor((levelId + 8) / 15));
+  const baseCols = 4 + Math.min(7, Math.floor((levelId + 4) / 12));
+  const rowSwing = [0, 1, 0, 2, -1, 1, 0, 2, -1, 1][position];
+  const colSwing = [1, 0, 2, -1, 1, 2, 0, -1, 2, 1][position];
+  const rows = Math.max(3, Math.min(10, baseRows + rowSwing));
+  const cols = Math.max(4, Math.min(12, baseCols + colSwing));
+  const lavaRatio = Math.min(0.44, 0.13 + band * 0.029 + (position % 4) * 0.018);
 
-  if (levelId <= 30) {
-    return { rows: 5, cols: 5, walls: Math.floor((levelId - 11) / 7) + 1 };
-  }
-
-  if (levelId <= 60) {
-    return { rows: 6, cols: 6, walls: 4 + Math.floor((levelId - 31) / 6) };
-  }
-
-  if (levelId <= 90) {
-    return { rows: 7, cols: 7, walls: 8 + Math.floor((levelId - 61) / 5) };
-  }
-
-  return { rows: 8, cols: 8, walls: 15 + Math.floor((levelId - 91) / 2) };
+  return { rows, cols, lavaRatio };
 }
 
 function buildSnakePath(rows: number, cols: number, variant: number): Cell[] {
@@ -75,7 +68,7 @@ function tryRandomPath(rows: number, cols: number, targetLength: number, prng: P
       c: index % cols,
     })),
   );
-  const deadline = performance.now() + 12;
+  const deadline = performance.now() + 28;
   const visited = new Set<string>();
   const path: Cell[] = [];
 
@@ -87,8 +80,21 @@ function tryRandomPath(rows: number, cols: number, targetLength: number, prng: P
       { r: cell.r, c: cell.c + 1 },
     ].filter((next) => next.r >= 0 && next.r < rows && next.c >= 0 && next.c < cols);
 
-    return prng.shuffle(options);
+    return prng.shuffle(options)
+      .map((next) => ({
+        cell: next,
+        onward: optionsOf(next).filter((option) => !visited.has(keyOf(option))).length,
+      }))
+      .sort((a, b) => a.onward - b.onward + (prng.next() - 0.5) * 0.7)
+      .map((item) => item.cell);
   };
+
+  const optionsOf = (cell: Cell): Cell[] => [
+    { r: cell.r - 1, c: cell.c },
+    { r: cell.r + 1, c: cell.c },
+    { r: cell.r, c: cell.c - 1 },
+    { r: cell.r, c: cell.c + 1 },
+  ].filter((next) => next.r >= 0 && next.r < rows && next.c >= 0 && next.c < cols);
 
   const search = (cell: Cell): boolean => {
     if (performance.now() > deadline) {
@@ -126,7 +132,10 @@ function tryRandomPath(rows: number, cols: number, targetLength: number, prng: P
 
 function buildRoute(levelId: number, difficulty: Difficulty): RoutePlan {
   const prng = createPrng(levelId);
-  const targetLength = difficulty.rows * difficulty.cols - difficulty.walls;
+  const cellCount = difficulty.rows * difficulty.cols;
+  const lavaCells = Math.floor(cellCount * difficulty.lavaRatio);
+  const minimumPlayable = Math.max(6, Math.ceil(cellCount * 0.48));
+  const targetLength = Math.max(minimumPlayable, cellCount - lavaCells);
   const randomized = tryRandomPath(difficulty.rows, difficulty.cols, targetLength, prng);
 
   if (randomized) {
@@ -134,13 +143,8 @@ function buildRoute(levelId: number, difficulty: Difficulty): RoutePlan {
   }
 
   const fullPath = buildSnakePath(difficulty.rows, difficulty.cols, prng.int(8));
-  const startOffset = prng.int(fullPath.length);
-  const rotated = [...fullPath.slice(startOffset), ...fullPath.slice(0, startOffset)];
-  const contiguous = rotated.slice(0, targetLength);
-
-  if (!contiguous.every((cell, index) => index === 0 || isAdjacent(cell, contiguous[index - 1]))) {
-    return { path: fullPath.slice(0, targetLength), rows: difficulty.rows, cols: difficulty.cols };
-  }
+  const startOffset = prng.int(fullPath.length - targetLength + 1);
+  const contiguous = fullPath.slice(startOffset, startOffset + targetLength);
 
   return { path: contiguous, rows: difficulty.rows, cols: difficulty.cols };
 }
