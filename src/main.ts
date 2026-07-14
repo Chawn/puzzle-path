@@ -1,4 +1,6 @@
 import { assertAllLevelsSolvable, generateLevel } from "./game/generator";
+import { gameAudio } from "./game/audio";
+import { renderLevelSelect } from "./game/levelselect";
 import { renderGame } from "./game/render";
 import { createGameState } from "./game/state";
 import { type GameProgress, MAX_LEVEL } from "./game/types";
@@ -43,12 +45,18 @@ function saveProgress(progress: GameProgress): void {
 }
 
 function startApp(): void {
+  gameAudio.bindFirstGesture();
+
   const app = document.querySelector<HTMLElement>("#app");
   if (!app) {
     throw new Error("Missing #app root");
   }
 
   let progress = loadProgress();
+
+  const showLevelSelect = (): void => {
+    renderLevelSelect(app, progress, openLevel);
+  };
 
   const openLevel = (levelId: number): void => {
     const level = generateLevel(levelId);
@@ -71,7 +79,13 @@ function startApp(): void {
       },
     });
 
+    handles.backButton.addEventListener("click", () => {
+      gameAudio.playSoftClick();
+      showLevelSelect();
+    });
+
     handles.resetButton.addEventListener("click", () => {
+      gameAudio.playReset();
       state.reset();
       handles.setWon(false);
       handles.update();
@@ -79,6 +93,7 @@ function startApp(): void {
 
     handles.nextButton.addEventListener("click", () => {
       if (level.id < MAX_LEVEL) {
+        gameAudio.playSoftClick();
         openLevel(level.id + 1);
       }
     });
@@ -87,7 +102,7 @@ function startApp(): void {
   if (import.meta.env.DEV) {
     assertAllLevelsSolvable();
   }
-  openLevel(progress.currentLevel);
+  showLevelSelect();
 }
 
 startApp();

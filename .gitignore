@@ -6,3 +6,5 @@ dist/
 # playwright + screenshots
 .playwright-mcp/
 docs/shot-*.png
+docs/vfinal.png
+docs/v2-*.png
