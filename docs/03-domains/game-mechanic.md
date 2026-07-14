@@ -113,3 +113,31 @@ type Level = {
 - ✅ FIXED: `assertAllLevelsSolvable()` gate `import.meta.env.DEV` แล้ว (tree-shake จาก prod, per-level assert ยังอยู่)
 - ✅ FIXED: favicon inline SVG (grid/เส้น) กัน 404
 - ยังไม่ได้ deploy (Cloudflare Pages) — out of scope รอบนี้
+
+---
+## 🔄 UPDATE 2026-07-15 — v2 (ธีมหินบนลาวา · board หลากหลาย · เลือกด่าน · win animation)
+
+> requirement เพิ่ม ไม่ลบของเดิม — v1 mechanic คงเดิม (Hamiltonian fill-all + solvable by construction)
+
+### Decisions v2
+- **D7 — ธีมหินบนลาวา (visual overhaul).** ช่องบล็อก = **ลาวา** (ไม่ใช่ "กำแพง"), ช่องเล่นได้ = **แผ่นหิน**. path = ทางเรืองแสง (molten trail). พื้นหลังลาวาไล่สี+glow เคลื่อนไหว (CSS animation). โทน: ลาวาแดง-ส้ม-ดำ + หินเทา + path เรืองแสงทอง/ส้มสว่าง. ให้ดู "จริงจัง" มีมิติ (shadow, gradient, texture ด้วย CSS ล้วน — ห้ามใช้รูปภายนอก).
+- **D8 — Board หลากหลาย ไม่จตุรัสทุกด่าน.** vary bounding box (rows≠cols เช่น 4×6, 3×7, 6×5) + vary สัดส่วนลาวา → playable region เป็นรูปไม่สม่ำเสมอ มีเว้า/แขนยื่น ต่างกันทุกด่าน (seed=levelId).
+  - ❗ **ข้อจำกัดตามจริง:** playable region ต้องต่อกันเป็น path เดียว → **ไม่มี island แยกขาดจริง** (จะแก้ไม่ได้). "ส่วนแยก" = แขนเว้า/คอคอด/รูปตัว L,T,U ไม่ใช่เกาะลอย. เขียนไว้ตรงๆ กันเข้าใจผิด.
+- **D9 — ยากขึ้น.** เพิ่มความหนาแน่นลาวา + grid โตเร็วขึ้น + รูปเว้าซับซ้อนตั้งแต่ช่วงกลาง (ปรับ getDifficulty).
+- **D10 — หน้าเลือกด่าน.** grid ปุ่ม 1..100: ด่านปลดล็อก = หิน (คลิกเล่นได้) · ล็อก = ลาวา/มืด (คลิกไม่ได้). เข้าเกม→มีปุ่มกลับหน้าเลือก. current/unlocked จาก localStorage เดิม.
+- **D11 — Win animation.** ชนะ → หินบน path ไล่สว่างทีละช่องตามลำดับ + glow/particle burst + ข้อความ "ผ่าน!" animate → ปุ่มด่านต่อไป. (CSS/canvas ล้วน ไม่เพิ่ม lib)
+
+### Spec เพิ่ม
+- `getDifficulty`: คืน rows/cols ที่ไม่จำเป็นต้องเท่ากัน + walls(ลาวา) เยอะขึ้น. band ปรับยากขึ้น
+- generator: เดิม (สุ่ม Hamiltonian path → non-path = lava) ยังการันตี solvable — แค่ param หลากหลายขึ้น
+- render: 2 view — **level-select** + **game**. state จัดการ view ปัจจุบัน
+- ไฟล์ใหม่ที่อาจเพิ่ม (ใน src/ เท่านั้น): `src/game/levelselect.ts` (หรือรวมใน render), `src/game/anim.ts` (win animation) — Codex เลือกโครงได้ตามเหมาะสม
+- **Out of scope (คงเดิม):** backend · บัญชี · **เสียง** · dependency นอก vite+typescript · รูปภาพภายนอก (ใช้ CSS/SVG/canvas gen เอง)
+
+### Acceptance Criteria v2 (เพิ่มจาก AC1-10)
+- [ ] AC11: board ไม่เป็นจตุรัสทุกด่าน — dimensions + รูป playable ต่างกันตาม level (เว้า/แขน) ไม่ซ้ำแบบเดิมตลอด
+- [ ] AC12: ธีมหินบนลาวา — พื้นลาวา animated glow, หินมีมิติ, path เรืองแสง; ดูจริงจัง (ไม่ใช่ตารางเปล่า)
+- [ ] AC13: หน้าเลือกด่าน — แสดง 1..100, locked/unlocked ต่างชัด, คลิกด่านปลดล็อกเข้าเล่นได้, มีปุ่มกลับ
+- [ ] AC14: win animation เล่นตอนชนะ (path ไล่สว่าง/glow) ก่อนปุ่มด่านต่อไป
+- [ ] AC15: ยากขึ้นกว่า v1 (ลาวาหนาแน่น/grid โตกว่า)
+- [ ] AC16: ทุกด่าน 1..100 ยัง solvable (by construction + assert) · `npm run build` ผ่าน · ไม่เพิ่ม dependency · ไม่แตะ backend/docs
