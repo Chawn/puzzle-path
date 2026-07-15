@@ -117,6 +117,8 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
 
   pathOverlay.append(defs, pathLine);
 
+  const cellRefs: { el: HTMLElement; r: number; c: number }[] = [];
+
   for (let r = 0; r < state.level.rows; r += 1) {
     for (let c = 0; c < state.level.cols; c += 1) {
       const cell = document.createElement("div");
@@ -125,10 +127,12 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
       cell.dataset.col = String(c);
       const label = document.createElement("span");
       label.className = "cell-label";
+      label.textContent = sameCell({ r, c }, state.level.start) ? "S" : "";
       const particles = document.createElement("span");
       particles.className = "cell-particles";
       cell.append(label, particles);
       grid.append(cell);
+      cellRefs.push({ el: cell, r, c });
     }
   }
 
@@ -155,32 +159,46 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
   shell.append(topbar, gridWrap, overlay);
   app.append(shell);
 
-  const updatePathOverlay = (): void => {
+  // Geometry cache — measured once per layout change, never during a drag.
+  // Reading getBoundingClientRect on every pointermove forced a synchronous
+  // layout (thrash) and made dragging feel laggy; now the trail is pure math.
+  const cellCenters = new Map<string, { x: number; y: number }>();
+
+  const measureGeometry = (): void => {
     const gridRect = grid.getBoundingClientRect();
     pathOverlay.setAttribute("viewBox", `0 0 ${gridRect.width} ${gridRect.height}`);
     pathOverlay.setAttribute("width", String(gridRect.width));
     pathOverlay.setAttribute("height", String(gridRect.height));
     gradient.setAttribute("x2", String(gridRect.width));
 
-    const points = state.path
-      .map((cell) => {
-        const cellEl = grid.querySelector<HTMLElement>(`.cell[data-row="${cell.r}"][data-col="${cell.c}"]`);
-        if (!cellEl) {
-          return null;
-        }
-
-        const rect = cellEl.getBoundingClientRect();
-        return `${rect.left - gridRect.left + rect.width / 2},${rect.top - gridRect.top + rect.height / 2}`;
-      })
-      .filter((point): point is string => point !== null);
-
-    const firstCell = grid.querySelector<HTMLElement>(".cell:not(.blocked)");
-    const cellWidth = firstCell?.getBoundingClientRect().width ?? 0;
-    pathLine.setAttribute("points", points.join(" "));
+    cellCenters.clear();
+    let cellWidth = 0;
+    for (const { el, r, c } of cellRefs) {
+      const rect = el.getBoundingClientRect();
+      cellCenters.set(`${r},${c}`, {
+        x: rect.left - gridRect.left + rect.width / 2,
+        y: rect.top - gridRect.top + rect.height / 2,
+      });
+      if (cellWidth === 0) {
+        cellWidth = rect.width;
+      }
+    }
     pathLine.setAttribute("stroke-width", String(Math.max(12, cellWidth * 0.4)));
   };
 
+  const updatePathOverlay = (): void => {
+    const points: string[] = [];
+    for (const cell of state.path) {
+      const center = cellCenters.get(keyOf(cell));
+      if (center) {
+        points.push(`${center.x},${center.y}`);
+      }
+    }
+    pathLine.setAttribute("points", points.join(" "));
+  };
+
   const resizeObserver = new ResizeObserver(() => {
+    measureGeometry();
     updatePathOverlay();
   });
   resizeObserver.observe(grid);
@@ -189,39 +207,31 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
     const pathIndex = new Map<string, number>();
     state.path.forEach((cell, index) => pathIndex.set(keyOf(cell), index));
 
-    for (const child of Array.from(grid.children)) {
-      const cellEl = child as HTMLElement;
-      const r = Number(cellEl.dataset.row);
-      const c = Number(cellEl.dataset.col);
-      const cell = { r, c };
-      const index = pathIndex.get(keyOf(cell));
-      const isBlocked = state.level.blocked[r][c];
-      const isStart = sameCell(cell, state.level.start);
-      const isHead = index === state.path.length - 1;
+    const isWinning = shell.classList.contains("is-winning");
+    const headIndex = state.path.length - 1;
+
+    for (const { el, r, c } of cellRefs) {
+      const index = pathIndex.get(`${r},${c}`);
       const classes = ["cell"];
 
-      if (isBlocked) {
+      if (state.level.blocked[r][c]) {
         classes.push("blocked");
       }
-      if (isStart) {
+      if (r === state.level.start.r && c === state.level.start.c) {
         classes.push("start");
       }
       if (index !== undefined) {
         classes.push("in-path");
-      }
-      if (isHead) {
-        classes.push("head");
-      }
-      if (shell.classList.contains("is-winning") && index !== undefined) {
-        classes.push("win-step");
+        el.style.setProperty("--path-index", String(index));
+        if (index === headIndex) {
+          classes.push("head");
+        }
+        if (isWinning) {
+          classes.push("win-step");
+        }
       }
 
-      cellEl.className = classes.join(" ");
-      cellEl.style.setProperty("--path-index", String(index ?? 0));
-      const label = cellEl.querySelector<HTMLElement>(".cell-label");
-      if (label) {
-        label.textContent = isStart ? "S" : "";
-      }
+      el.className = classes.join(" ");
     }
 
     updatePathOverlay();
@@ -235,6 +245,7 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
     update();
   };
 
+  measureGeometry();
   update();
 
   return {
