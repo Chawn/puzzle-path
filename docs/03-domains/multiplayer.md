@@ -53,5 +53,31 @@ S→C: {t:'state', players:[{name,score}], level, phase} · {t:'levelWon', winne
 - [ ] AC8: อยู่ใน free tier (WebSocket hibernation, SQLite DO)
 - [ ] AC9: คู่แข่งหลุด → แจ้ง + จบ/รอ
 
-## 6. As-built (เติมหลัง implement)
-> (รอ implement)
+## 6. As-built (2026-07-15)
+> IMPLEMENTED (worktree `perf-and-v3`) — verified local (wrangler dev + Playwright 2 แท็บ)
+
+### Worker (`worker/`)
+- `wrangler.jsonc` — DO bindings `MATCH_ROOM`, `LOBBY`; migration `v1` = `new_sqlite_classes` (free tier)
+- `src/index.ts` — router: `/ws/room/:code`, `/ws/lobby`, `/health`, CORS
+- `src/MatchRoom.ts` — 1 DO/แมตช์. lifecycle: `waiting → playing → roundEnd (รอ ready ทั้งคู่ หรือ alarm 6s) → advance → … → ended`. WebSocket hibernation (`acceptWebSocket` + `serializeAttachment` slot). server-authoritative win/surrender. reclaim slot ตามชื่อถ้าหลุด
+- `src/Lobby.ts` — global DO queue: 2 คน `queue` → mint roomCode → `matched` แล้วปิด lobby socket
+- **ไม่ต้อง reuse generator ใน worker** — worker นับแต้มอย่างเดียว, board สร้างที่ client จาก `MATCH_LEVEL_IDS` (seed sync ทั้งคู่)
+
+### Client
+- `src/net/mp.ts` — `MatchClient` + `matchmake()`
+- `src/net/config.ts` — `MP_WS_BASE` (dev `ws://localhost:8787` · prod `VITE_MP_WS_BASE` · `?mp=` override) · `MP_ENABLED`
+- `src/game/match.ts` — `MATCH_LEVEL_IDS=[2,9,18,28,40,52,64,76,88,100]`, nickname (localStorage), roomCode, challengeLink
+- `src/game/home.ts` — หน้าแรก + 3 โหมด + join CTA จากลิงก์
+- `src/game/matchview.ts` — reuse `renderGame` board + HUD (คะแนน/รอบ/สถานะ/ยอมแพ้/ออก) + overlay round/match
+- `input.ts` `suppressWinOverlay`; `levelselect.ts` ปุ่มหน้าหลัก; `main.ts` routing + `?room` join
+
+### AC status
+- AC1 ✅ `wrangler deploy --dry-run` ผ่าน (**deploy จริงรอ Cloudflare login**)
+- AC2 ✅ · AC3 ✅ (verified 2 แท็บ: seed ตรงกัน, ชนะได้แต้ม, ไปด่านถัดไปพร้อมกัน)
+- AC4 ✅ · AC5 ✅ (worker test: surrender + matchEnd 6-4) · AC6 ✅ (lobby pairing test)
+- AC7 ✅ solo ยังเล่นได้ · AC8 ✅ SQLite DO + hibernation · AC9 ✅ opponentLeft broadcast
+
+### เหลือ (deploy)
+1. `cd worker && wrangler login && npm run deploy` → ได้ URL เช่น `puzzle-path-mp.<sub>.workers.dev`
+2. ตั้ง `VITE_MP_WS_BASE=wss://puzzle-path-mp.<sub>.workers.dev` (`.env.production`) แล้ว `npm run build`
+3. `wrangler pages deploy dist` (frontend เดิม)
