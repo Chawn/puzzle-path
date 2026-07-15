@@ -1,9 +1,23 @@
-// The 10-level challenge ladder (easy → very hard), shared by both players.
-// Deterministic: both clients call generateLevel(MATCH_LEVEL_IDS[round]) so
-// they always see the same board for a given round. The Worker only counts
-// score, so this sequence lives entirely client-side.
-export const MATCH_LEVEL_IDS = [2, 9, 18, 28, 40, 52, 64, 76, 88, 100];
-export const MATCH_TOTAL = MATCH_LEVEL_IDS.length;
+import { createPrng } from "./prng";
+
+// The 10-level match ladder is seeded by room code so both players see the
+// same easy-to-hard sequence while each room gets its own random levels.
+export const MATCH_TOTAL = 10;
+
+export function hashRoomCode(code: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < code.length; i += 1) {
+    hash ^= code.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+}
+
+export function matchLevelIds(roomCode: string): number[] {
+  const prng = createPrng(hashRoomCode(roomCode));
+  return Array.from({ length: MATCH_TOTAL }, (_, band) => band * 10 + 1 + prng.int(10));
+}
 
 const NAME_KEY = "puzzle-path-nickname";
 

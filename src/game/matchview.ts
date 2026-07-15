@@ -3,7 +3,7 @@ import { createGameState } from "./state";
 import { renderGame } from "./render";
 import { wireInput } from "./input";
 import { gameAudio } from "./audio";
-import { MATCH_LEVEL_IDS, MATCH_TOTAL } from "./match";
+import { matchLevelIds, MATCH_TOTAL } from "./match";
 import { MatchClient, type PlayerInfo } from "../net/mp";
 
 type MatchViewOptions = {
@@ -31,6 +31,7 @@ function button(label: string, className: string): HTMLButtonElement {
 
 export function renderMatch(app: HTMLElement, opts: MatchViewOptions): () => void {
   app.innerHTML = "";
+  const levelIds = matchLevelIds(opts.room);
   const client = new MatchClient();
 
   let mySlot: number | null = null;
@@ -89,7 +90,7 @@ export function renderMatch(app: HTMLElement, opts: MatchViewOptions): () => voi
   const loadLevel = (levelIndex: number): void => {
     currentLevel = levelIndex;
     overlay.hidden = true;
-    const level = generateLevel(MATCH_LEVEL_IDS[levelIndex]);
+    const level = generateLevel(levelIds[levelIndex]);
     const state = createGameState(level);
     const handles = renderGame(boardHost, state);
     wireInput(state, handles, {
