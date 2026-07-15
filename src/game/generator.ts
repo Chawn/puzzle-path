@@ -30,7 +30,7 @@ function getDifficulty(levelId: number): Difficulty {
   const colSwing = [1, 0, 2, -1, 1, 2, 0, -1, 2, 1][position];
   const rows = Math.max(3, Math.min(10, baseRows + rowSwing));
   const cols = Math.max(4, Math.min(12, baseCols + colSwing));
-  const lavaRatio = Math.min(0.44, 0.13 + band * 0.029 + (position % 4) * 0.018);
+  const lavaRatio = Math.min(0.62, 0.30 + band * 0.030 + (position % 4) * 0.022);
 
   return { rows, cols, lavaRatio };
 }

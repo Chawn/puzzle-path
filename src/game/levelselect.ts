@@ -5,6 +5,7 @@ export function renderLevelSelect(
   app: HTMLElement,
   progress: GameProgress,
   onOpenLevel: (levelId: number) => void,
+  onHome?: () => void,
 ): void {
   app.innerHTML = "";
 
@@ -24,7 +25,19 @@ export function renderLevelSelect(
 
   const headerControls = document.createElement("div");
   headerControls.className = "select-header-controls";
-  headerControls.append(status, gameAudio.createMuteButton());
+  headerControls.append(status);
+  if (onHome) {
+    const homeButton = document.createElement("button");
+    homeButton.type = "button";
+    homeButton.className = "control-button subtle-button";
+    homeButton.textContent = "หน้าหลัก";
+    homeButton.addEventListener("click", () => {
+      gameAudio.playSoftClick();
+      onHome();
+    });
+    headerControls.append(homeButton);
+  }
+  headerControls.append(gameAudio.createMuteButton());
 
   header.append(title, headerControls);
 

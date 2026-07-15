@@ -5,6 +5,9 @@ import { gameAudio } from "./audio";
 
 type InputOptions = {
   onWin: () => void;
+  // In match mode the server decides the round result, so we skip the
+  // local solo win overlay and just report the win upward.
+  suppressWinOverlay?: boolean;
 };
 
 const sameCell = (a: Cell, b: Cell): boolean => a.r === b.r && a.c === b.c;
@@ -38,7 +41,9 @@ export function wireInput(state: GameState, handles: RenderHandles, options: Inp
 
       if (state.isWin()) {
         dragging = false;
-        handles.setWon(true);
+        if (!options.suppressWinOverlay) {
+          handles.setWon(true);
+        }
         gameAudio.playWin();
         options.onWin();
       } else if (state.path.length < previousLength) {

@@ -15,19 +15,6 @@ const sameCell = (a: Cell, b: Cell): boolean => a.r === b.r && a.c === b.c;
 
 const keyOf = (cell: Cell): string => `${cell.r},${cell.c}`;
 
-function directionClass(from: Cell, to: Cell): string {
-  if (to.r < from.r) {
-    return "connect-up";
-  }
-  if (to.r > from.r) {
-    return "connect-down";
-  }
-  if (to.c < from.c) {
-    return "connect-left";
-  }
-  return "connect-right";
-}
-
 export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
   app.innerHTML = "";
 
@@ -62,10 +49,75 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
   const gridWrap = document.createElement("section");
   gridWrap.className = "grid-wrap";
 
+  const gridBoard = document.createElement("div");
+  gridBoard.className = "grid-board";
+  gridBoard.style.setProperty("--rows", String(state.level.rows));
+  gridBoard.style.setProperty("--cols", String(state.level.cols));
+
   const grid = document.createElement("div");
   grid.className = "grid";
   grid.style.setProperty("--rows", String(state.level.rows));
   grid.style.setProperty("--cols", String(state.level.cols));
+
+  const pathOverlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  pathOverlay.classList.add("path-overlay");
+  pathOverlay.setAttribute("aria-hidden", "true");
+  pathOverlay.setAttribute("focusable", "false");
+
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  const gradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+  gradient.id = "path-molten-gradient";
+  gradient.setAttribute("gradientUnits", "userSpaceOnUse");
+  gradient.setAttribute("x1", "0");
+  gradient.setAttribute("y1", "0");
+  gradient.setAttribute("x2", "1");
+  gradient.setAttribute("y2", "0");
+
+  const goldStop = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  goldStop.setAttribute("offset", "0%");
+  goldStop.setAttribute("stop-color", "#fff3a5");
+
+  const orangeStop = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  orangeStop.setAttribute("offset", "52%");
+  orangeStop.setAttribute("stop-color", "#ff9a22");
+
+  const redStop = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  redStop.setAttribute("offset", "100%");
+  redStop.setAttribute("stop-color", "#ff3512");
+
+  gradient.append(goldStop, orangeStop, redStop);
+
+  const filter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
+  filter.id = "path-molten-glow";
+  filter.setAttribute("x", "-25%");
+  filter.setAttribute("y", "-25%");
+  filter.setAttribute("width", "150%");
+  filter.setAttribute("height", "150%");
+
+  const blur = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
+  blur.setAttribute("stdDeviation", "7");
+  blur.setAttribute("result", "blur");
+
+  const merge = document.createElementNS("http://www.w3.org/2000/svg", "feMerge");
+  const glowNode = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode");
+  glowNode.setAttribute("in", "blur");
+  const sourceNode = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode");
+  sourceNode.setAttribute("in", "SourceGraphic");
+  merge.append(glowNode, sourceNode);
+  filter.append(blur, merge);
+  defs.append(gradient, filter);
+
+  const pathLine = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  pathLine.classList.add("path-line");
+  pathLine.setAttribute("fill", "none");
+  pathLine.setAttribute("stroke", "url(#path-molten-gradient)");
+  pathLine.setAttribute("stroke-linecap", "round");
+  pathLine.setAttribute("stroke-linejoin", "round");
+  pathLine.setAttribute("filter", "url(#path-molten-glow)");
+
+  pathOverlay.append(defs, pathLine);
+
+  const cellRefs: { el: HTMLElement; r: number; c: number }[] = [];
 
   for (let r = 0; r < state.level.rows; r += 1) {
     for (let c = 0; c < state.level.cols; c += 1) {
@@ -75,14 +127,17 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
       cell.dataset.col = String(c);
       const label = document.createElement("span");
       label.className = "cell-label";
+      label.textContent = sameCell({ r, c }, state.level.start) ? "S" : "";
       const particles = document.createElement("span");
       particles.className = "cell-particles";
       cell.append(label, particles);
       grid.append(cell);
+      cellRefs.push({ el: cell, r, c });
     }
   }
 
-  gridWrap.append(grid);
+  gridBoard.append(grid, pathOverlay);
+  gridWrap.append(gridBoard);
 
   const overlay = document.createElement("div");
   overlay.className = "win-overlay";
@@ -104,52 +159,82 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
   shell.append(topbar, gridWrap, overlay);
   app.append(shell);
 
+  // Geometry cache — measured once per layout change, never during a drag.
+  // Reading getBoundingClientRect on every pointermove forced a synchronous
+  // layout (thrash) and made dragging feel laggy; now the trail is pure math.
+  const cellCenters = new Map<string, { x: number; y: number }>();
+
+  const measureGeometry = (): void => {
+    const gridRect = grid.getBoundingClientRect();
+    pathOverlay.setAttribute("viewBox", `0 0 ${gridRect.width} ${gridRect.height}`);
+    pathOverlay.setAttribute("width", String(gridRect.width));
+    pathOverlay.setAttribute("height", String(gridRect.height));
+    gradient.setAttribute("x2", String(gridRect.width));
+
+    cellCenters.clear();
+    let cellWidth = 0;
+    for (const { el, r, c } of cellRefs) {
+      const rect = el.getBoundingClientRect();
+      cellCenters.set(`${r},${c}`, {
+        x: rect.left - gridRect.left + rect.width / 2,
+        y: rect.top - gridRect.top + rect.height / 2,
+      });
+      if (cellWidth === 0) {
+        cellWidth = rect.width;
+      }
+    }
+    pathLine.setAttribute("stroke-width", String(Math.max(12, cellWidth * 0.4)));
+  };
+
+  const updatePathOverlay = (): void => {
+    const points: string[] = [];
+    for (const cell of state.path) {
+      const center = cellCenters.get(keyOf(cell));
+      if (center) {
+        points.push(`${center.x},${center.y}`);
+      }
+    }
+    pathLine.setAttribute("points", points.join(" "));
+  };
+
+  const resizeObserver = new ResizeObserver(() => {
+    measureGeometry();
+    updatePathOverlay();
+  });
+  resizeObserver.observe(grid);
+
   const update = (): void => {
     const pathIndex = new Map<string, number>();
     state.path.forEach((cell, index) => pathIndex.set(keyOf(cell), index));
 
-    for (const child of Array.from(grid.children)) {
-      const cellEl = child as HTMLElement;
-      const r = Number(cellEl.dataset.row);
-      const c = Number(cellEl.dataset.col);
-      const cell = { r, c };
-      const index = pathIndex.get(keyOf(cell));
-      const isBlocked = state.level.blocked[r][c];
-      const isStart = sameCell(cell, state.level.start);
-      const isHead = index === state.path.length - 1;
+    const isWinning = shell.classList.contains("is-winning");
+    const headIndex = state.path.length - 1;
+
+    for (const { el, r, c } of cellRefs) {
+      const index = pathIndex.get(`${r},${c}`);
       const classes = ["cell"];
 
-      if (isBlocked) {
+      if (state.level.blocked[r][c]) {
         classes.push("blocked");
       }
-      if (isStart) {
+      if (r === state.level.start.r && c === state.level.start.c) {
         classes.push("start");
       }
       if (index !== undefined) {
         classes.push("in-path");
-        const previous = state.path[index - 1];
-        const next = state.path[index + 1];
-        if (previous) {
-          classes.push(directionClass(cell, previous));
+        el.style.setProperty("--path-index", String(index));
+        if (index === headIndex) {
+          classes.push("head");
         }
-        if (next) {
-          classes.push(directionClass(cell, next));
+        if (isWinning) {
+          classes.push("win-step");
         }
-      }
-      if (isHead) {
-        classes.push("head");
-      }
-      if (shell.classList.contains("is-winning") && index !== undefined) {
-        classes.push("win-step");
       }
 
-      cellEl.className = classes.join(" ");
-      cellEl.style.setProperty("--path-index", String(index ?? 0));
-      const label = cellEl.querySelector<HTMLElement>(".cell-label");
-      if (label) {
-        label.textContent = isStart ? "S" : "";
-      }
+      el.className = classes.join(" ");
     }
+
+    updatePathOverlay();
   };
 
   const setWon = (isWon: boolean): void => {
@@ -160,6 +245,7 @@ export function renderGame(app: HTMLElement, state: GameState): RenderHandles {
     update();
   };
 
+  measureGeometry();
   update();
 
   return {

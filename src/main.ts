@@ -5,17 +5,11 @@ import { renderGame } from "./game/render";
 import { createGameState } from "./game/state";
 import { type GameProgress, MAX_LEVEL } from "./game/types";
 import { wireInput } from "./game/input";
+import { renderHome } from "./game/home";
+import { renderMatch } from "./game/matchview";
+import { loadNickname } from "./game/match";
+import { MP_ENABLED } from "./net/config";
 import "./style.css";
-
-declare global {
-  interface ImportMetaEnv {
-    readonly DEV: boolean;
-  }
-
-  interface ImportMeta {
-    readonly env: ImportMetaEnv;
-  }
-}
 
 const STORAGE_KEY = "puzzle-path-progress";
 
@@ -44,6 +38,16 @@ function saveProgress(progress: GameProgress): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
 }
 
+function setRoomParam(room: string | null): void {
+  const url = new URL(location.href);
+  if (room) {
+    url.searchParams.set("room", room);
+  } else {
+    url.searchParams.delete("room");
+  }
+  history.replaceState(null, "", url);
+}
+
 function startApp(): void {
   gameAudio.bindFirstGesture();
 
@@ -54,8 +58,24 @@ function startApp(): void {
 
   let progress = loadProgress();
 
+  const showHome = (joinRoom?: string): void => {
+    renderHome(app, { onSolo: showLevelSelect, onEnterMatch: enterMatch }, { joinRoom });
+  };
+
   const showLevelSelect = (): void => {
-    renderLevelSelect(app, progress, openLevel);
+    renderLevelSelect(app, progress, openLevel, () => showHome());
+  };
+
+  const enterMatch = (room: string, name: string): void => {
+    setRoomParam(room);
+    renderMatch(app, {
+      room,
+      name,
+      onExit: () => {
+        setRoomParam(null);
+        showHome();
+      },
+    });
   };
 
   const openLevel = (levelId: number): void => {
@@ -102,7 +122,18 @@ function startApp(): void {
   if (import.meta.env.DEV) {
     assertAllLevelsSolvable();
   }
-  showLevelSelect();
+
+  const room = new URLSearchParams(location.search).get("room");
+  if (room && MP_ENABLED) {
+    const name = loadNickname();
+    if (name) {
+      enterMatch(room, name);
+    } else {
+      showHome(room);
+    }
+  } else {
+    showHome();
+  }
 }
 
 startApp();
