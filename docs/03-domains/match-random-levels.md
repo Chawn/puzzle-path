@@ -55,5 +55,19 @@
 - **AC6** — `grep -rn MATCH_LEVEL_IDS src/` ไม่เจอแล้ว (ลบครบ) ; `MATCH_TOTAL` ยังถูกใช้ใน matchview ปกติ
 - **AC7** — `git diff --name-only` แตะแค่ `src/game/match.ts`, `src/game/matchview.ts` (+ spec นี้) — ไม่มี `worker/` หรือไฟล์นอก scope
 
-## 7. As-built
-> (เติมหลัง implement + verify)
+## 7. As-built (2026-07-15)
+> IMPLEMENTED via spec-to-code (Codex แก้ · Claude review+verify+commit) — verified
+
+- `src/game/match.ts`: เพิ่ม `hashRoomCode()` (FNV-1a 32-bit: offset `2166136261`, prime `16777619`, `>>> 0`) + `matchLevelIds(roomCode)` (`createPrng(hashRoomCode)`, `band*10 + 1 + prng.int(10)`), คง `MATCH_TOTAL=10`, ลบ `MATCH_LEVEL_IDS`
+- `src/game/matchview.ts`: `const levelIds = matchLevelIds(opts.room)` ต้น `renderMatch` → `generateLevel(levelIds[levelIndex])`
+
+### Verify (จริง — ไม่ใช่เดา)
+- AC1-4 ✅ รัน `matchLevelIds` module จริงผ่าน dev server: `"abc123"→[10,11,23,31,44,54,63,76,81,94]` · `"bbbbbb"→[6,14,26,38,50,54,65,78,88,95]` (ascending ต่อ band, deterministic, คนละห้องต่างกัน)
+- AC5 ✅ `npm run typecheck` + `npm run build` ผ่าน
+- AC6 ✅ `grep MATCH_LEVEL_IDS src/` ไม่เจอ
+- AC7 ✅ diff แตะแค่ `src/game/match.ts` + `matchview.ts` (+spec) — ไม่แตะ `worker/`
+- **Integration ✅** 2 แท็บห้อง `1anawxez` → บอร์ดรอบ 1 blocked-pattern เหมือนกันเป๊ะ (seed sync ยังทำงาน)
+
+### Gotcha
+- Worker ไม่ต้องแก้เลย — รู้แค่จำนวนรอบ (`TOTAL_LEVELS=10`), level id อยู่ฝั่ง client ล้วน
+- ถ้าจะเพิ่ม/ลดจำนวนรอบ ต้องแก้ทั้ง `MATCH_TOTAL` (client) และ `TOTAL_LEVELS` (worker/MatchRoom.ts) ให้ตรงกัน
